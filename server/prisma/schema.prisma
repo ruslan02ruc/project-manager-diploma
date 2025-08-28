@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  email    String @unique
+  password String
+
+  name         String  @default("No name")
+  avatar       String  @default("/uploads/default-avatar.png") @map("avatar")
+  telegramName String? @map("telegram_name")
+  telegramId   String? @map("telegram_id")
+
+  projectsOwned  Project[]       @relation("owner")
+  projectMembers ProjectMember[]
+  tasks          Task[]
+  comments       Comment[]
+  notifications  Notification[]
+  chatMember     ChatMember[]
+  message        Message[]
+
+  @@map("user")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  title       String
+  description String?
+  status      Status  @default(TODO)
+  isArchive   Boolean @default(false) @map("is_archive")
+
+  owner   User?   @relation("owner", fields: [ownerId], references: [id])
+  ownerId String? @map("owner_id")
+
+  tasks          Task[]
+  projectMembers ProjectMember[]
+  chat           Chat[]
+
+  @@map("project")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String  @map("project_id")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  role UserRole @default(USER)
+
+  @@unique([projectId, userId])
+  @@map("project-member")
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  title       String
+  description String?
+  status      Status    @default(TODO)
+  priority    Priority  @default(LOW)
+  startTime   DateTime? @map("start_time")
+  endTime     DateTime? @map("end_time")
+  isArchive   Boolean   @default(false) @map("is_archive")
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String  @map("project_id")
+
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
+
+  task   Task?   @relation("subtask", fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @map("task_id")
+
+  subtasks Task[]    @relation("subtask")
+  comments Comment[]
+
+  @@map("task")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  message String
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String @map("task_id")
+
+  parent   Comment? @relation("comment_to_comment", fields: [parentId], references: [id])
+  parentId String?  @map("parent_id")
+
+  replies Comment[] @relation("comment_to_comment")
+
+  @@map("comment")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  message String
+  read    Boolean @default(false)
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  @@map("notification")
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  isGroup   Boolean  @default(false) @map("is_group")
+  title     String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?  @map("project_id")
+
+  members  ChatMember[]
+  messages Message[]
+
+  @@map("chat")
+}
+
+model ChatMember {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId String @map("chat_id")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  @@unique([chatId, userId])
+  @@map("chat_member")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  content String
+
+  chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId String @map("chat_id")
+
+  sender   User   @relation(fields: [senderId], references: [id])
+  senderId String @map("sender_id")
+
+  @@map("message")
+}
+
+// model Commit {
+//   id        String   @id @default(uuid())
+//   createdAt DateTime @default(now()) @map("created_at")
+
+//   sha         String   @unique
+//   message     String
+//   timestamp   DateTime
+//   authorName  String
+//   authorEmail String
+//   url         String
+//   repository  String
+
+//   @@map("commit")
+// }
+
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}
+
+enum Status {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  BLOCKED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
